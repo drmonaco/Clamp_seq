@@ -1,0 +1,63 @@
+---
+title: "Clamp Exploration - Run007"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(pheatmap)
+library(data.table)
+library(tidyverse)
+library(viridis)
+library(RColorBrewer)
+
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_chunk$set(error = FALSE)
+
+```
+
+Initial Clamp Probe Blast Analysis
+---------------
+
+
+```{r pressure, echo=FALSE,warning=FALSE,echo = FALSE}
+
+counts = fread("D:/Work/Code/Clamp/counts.csv")
+matrix = fread("C:/Users/danie/Downloads/clamp_blast_matrix (1).csv") %>% as.data.frame() %>% column_to_rownames("qseqid")
+rc = fread("C:/Users/danie/Downloads/clamp_output_rc.csv")
+key= fread("C:/Users/danie/Downloads/key_clamp.csv") %>% column_to_rownames("Name")
+key2= fread("C:/Users/danie/Downloads/sequences (1).csv") %>% select(Accession,Location,Species_mini) %>% right_join(colnames(matrix) %>% as.data.frame() %>% rename(Accession = ".")) %>% filter(Location!="#N/A") %>% column_to_rownames("Accession")
+
+
+# mat_colors_col = list(Location = cbind(unique(key2$Location),viridis(length((unique(key2$Location))))))
+
+mat_colors_col2 <- list(Location = c(brewer.pal(9, "Paired")))
+    names(mat_colors_col2$Location) <- unique(key2$Location)
+
+xx = pheatmap(t(matrix),annotation_col = key,annotation_row = key2,show_rownames = F,show_colnames = F,
+         cutree_cols = 4,annotation_names_row = T,main = "Clamp CV probes vs CV genomes",annotation_colors = mat_colors_col2,
+         annotation_legend = T,fontsize = 7)
+
+```
+
+To better characterize the cross-reactivity amongst our clamp-seq CV probes, I performed a blastn search comparing the reverse complement of the 58 designed clamp probes against 565 coronavirus genomes and found 4828 probe - genome matches. Converting the resulting data into a matrix of clamp probes vs genomes, with ppos as the values within the cells, and clustering yields the above heatmap. I pulled some meta info on both the probes and the genomes, distinguishing whether probes were from the inital "general CV" pool or the substrain specific pull. I also pulled a meta column "Geo Location" that was associated with each CV genome.
+
+As a note I did some manual pooling of countries to get a more managable list of Locations and pulled the species associated with each sequence.
+
+## Header 2
+
+
+```{r }
+tmp = counts %>% filter(`fasta[, 1]` %in% rownames(matrix)) %>%  column_to_rownames("fasta[, 1]")
+tmp_sub = tmp %>% select(tmp %>% colSums %>% as.data.frame() %>% rownames_to_column()%>%  filter(. >=10) %>% select(rowname) %>% unlist() %>% as.character())
+tmp_sub = tmp_sub %>% rownames_to_column() %>% mutate(rowsum = rowSums(.[2:23]))
+```
+
+
+
+
