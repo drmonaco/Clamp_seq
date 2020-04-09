@@ -124,7 +124,7 @@ Page 3
 Row{data-height=100}
 -------------------------------------
 
-### Chart 2
+### Haplotype
 
 ```{r }
 hap_key =  fread("Haplotype_key.csv")
@@ -157,7 +157,7 @@ haplotype_str
 Row {.tabset .tabset-fade} 
 -------------------------------------
 
-### Chart 3
+### Substrain Haplotype best match
 
 ```{r test2}
 
@@ -190,13 +190,13 @@ haplotype_2=  cbind(haplotype,xxx)
 colnames(haplotype_2) = c("Subspecies","Haplotype","Mismatch","Match")
 output= haplotype_2 %>% filter(Match + Mismatch <=20) %>% arrange(-Match)  %>% filter(Mismatch == min(Mismatch))
 output$Mismatch = output$Mismatch - xxx_2[,2]
-output$Match = output$Match + xxx_2[,2]
+output$Match = output$Match
 output$`Wild cards` = xxx_2[1,1]
 output
  })
 ```
 
-### Chart 5
+### Haplotype binomial test calls
 
 ```{r test5}
 
@@ -212,7 +212,10 @@ tmp_t2 = tmp_t %>% right_join(hap_key,) %>% group_by(Pair_id) %>% summarise(tota
 tmp_t3 =  tmp_t %>% right_join(hap_key,) %>% right_join(tmp_t2) %>% mutate(failures = total-Sample)
 tmp_t3$p_value = mapply(bt, tmp_t3$Sample, tmp_t3$total)
 
-haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1, Clamp_name) %>% mutate(haplotype = ifelse(p_value<.001,Nucleotide,"*"))%>% ungroup%>% select(Clamp_name,haplotype,Sample,total,p_value)
+haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1, Clamp_name) %>% mutate(haplotype = ifelse(p_value<.001,Nucleotide,"*"))%>% ungroup%>% select(Pair_id,haplotype,Sample,total,p_value,Status) %>% 
+  mutate(wt_counts = ifelse(Status == "wildtype",Sample,total-Sample)) %>% 
+    mutate(mt_counts = ifelse(Status == "mutant",Sample,total-Sample)) %>% select(-Sample,-total,-Status) %>% 
+  select(Pair_id,haplotype,wt_counts,mt_counts,p_value)
 
 haplotype_str
  })
@@ -221,7 +224,7 @@ haplotype_str
 Inputs {.sidebar}
 -------------------------------------
 
-### Chart 2
+### Input Column
 
 ```{r }
 selectInput(inputId = "id3", label = "Sample_ID", choices = colnames(tmp))
