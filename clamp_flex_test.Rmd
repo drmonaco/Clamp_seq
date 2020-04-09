@@ -1,8 +1,10 @@
 ---
-title: "Untitled"
+title: "CLAmp Sequencing"
+runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
-    runtime: shiny
+    theme: cosmo
+    orientation: rows
 ---
 
 ```{r setup, include=FALSE}
@@ -15,9 +17,8 @@ library(viridis)
 library(RColorBrewer)
 library(shiny)
 knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_knit$set(root.dir= normalizePath('..'))
+knitr::opts_knit$set(root.dir= normalizePath('.'))
 knitr::opts_chunk$set(error = FALSE)
-
 ```
 
 Page 1
@@ -27,12 +28,14 @@ Row
 -----------------------------------------------------------------------
 
 ```{r pressure, echo=FALSE,warning=FALSE,echo = FALSE}
+# counts = fread("counts.csv")
+# counts = fread("test.csv")
+counts = fread("CLAmp8_counts_simpCols.csv")
 
-counts = fread("D:/Work/Code/Clamp/counts.csv")
-matrix = fread("C:/Users/danie/Downloads/clamp_blast_matrix (1).csv") %>% as.data.frame() %>% column_to_rownames("qseqid")
-rc = fread("C:/Users/danie/Downloads/clamp_output_rc.csv")
-key= fread("C:/Users/danie/Downloads/key_clamp.csv") %>% column_to_rownames("Name")
-key2= fread("C:/Users/danie/Downloads/sequences (1).csv") %>% select(Accession,Location,Species_mini) %>% right_join(colnames(matrix) %>% as.data.frame() %>% rename(Accession = ".")) %>% filter(Location!="#N/A") %>% column_to_rownames("Accession")
+matrix = fread("clamp_blast_matrix (1).csv") %>% as.data.frame() %>% column_to_rownames("qseqid")
+rc = fread("clamp_output_rc.csv")
+key= fread("key_clamp.csv") %>% column_to_rownames("Name")
+key2= fread("sequences (1).csv") %>% select(Accession,Location,Species_mini) %>% right_join(colnames(matrix) %>% as.data.frame() %>% rename(Accession = ".")) %>% filter(Location!="#N/A") %>% column_to_rownames("Accession")
 
 
 # mat_colors_col = list(Location = cbind(unique(key2$Location),viridis(length((unique(key2$Location))))))
@@ -54,13 +57,14 @@ As a note I did some manual pooling of countries to get a more managable list of
 Page 2
 ===================================== 
 
-Column {data-width=650}
+Row
 -----------------------------------------------------------------------
 
 ### Chart 1
 
 ```{r }
 tmp = counts %>% filter(`fasta[, 1]` %in% rownames(matrix)) %>%  column_to_rownames("fasta[, 1]")
+tmp = tmp[1:18,]
 tmp_sub = tmp %>% select(tmp %>% colSums %>% as.data.frame() %>% rownames_to_column()%>%  filter(. >=10) %>% select(rowname) %>% unlist() %>% as.character())
 tmp_sub = tmp_sub %>% rownames_to_column() %>% mutate(rowsum = rowSums(.[2:23])) %>% filter(rowsum>=10) %>% select(-rowsum)
 
@@ -75,9 +79,14 @@ table
 
 ```
 
+Row
+-----------------------------------------------------------------------
+
 ### Chart 2
+
 ```{r }
 tmp = counts %>% filter(`fasta[, 1]` %in% rownames(matrix)) %>%  column_to_rownames("fasta[, 1]")
+tmp = tmp[1:18,]
 tmp_sub = tmp %>% select(tmp %>% colSums %>% as.data.frame() %>% rownames_to_column()%>%  filter(. >=10) %>% select(rowname) %>% unlist() %>% as.character())
 tmp_sub = tmp_sub %>% rownames_to_column() %>% mutate(rowsum = rowSums(.[2:23])) %>% filter(rowsum>=10) %>% select(-rowsum)
 
@@ -97,9 +106,8 @@ f %>% left_join(y = key2 %>% rownames_to_column() %>% select(rowname,Species_min
 
 ```
 
-
-Column {data-width=350}
------------------------------------------------------------------------
+Inputs {.sidebar}
+-------------------------------------
 
 ### Chart 2
 
@@ -107,3 +115,117 @@ Column {data-width=350}
 selectInput(inputId = "id2", label = "Sample_ID", choices = colnames(tmp_sub))
 
 ```
+
+
+
+Page 3
+===================================== 
+
+Row{data-height=100}
+-------------------------------------
+
+### Chart 2
+
+```{r }
+hap_key =  fread("Haplotype_key.csv")
+haplotype = fread("haplotypes.tsv",sep = "\t",header = F)
+tmp = counts %>% filter(`fasta[, 1]` %in% rownames(matrix)) %>%  column_to_rownames("fasta[, 1]")
+tmp = tmp[19:58,]
+
+bt <- function(a, b, p = 0.5) {binom.test(a, b, 0.5, alternative=
+                            c("greater"), conf.level = 0.95)$p.value}
+
+
+renderTable({
+
+  x = input$id3
+
+tmp_t = tmp %>% rownames_to_column() %>% select(c(rowname,x)) %>% rename(Clamp_name = "rowname")
+colnames(tmp_t)[2] = "Sample"
+tmp_t2 = tmp_t %>% right_join(hap_key,) %>% group_by(Pair_id) %>% summarise(total = sum(Sample)) %>% 
+  mutate(total = ifelse(total == 0,1,total))
+tmp_t3 =  tmp_t %>% right_join(hap_key,) %>% right_join(tmp_t2) %>% mutate(failures = total-Sample)
+tmp_t3$p_value = mapply(bt, tmp_t3$Sample, tmp_t3$total)
+
+haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1, Clamp_name) %>% mutate(haplotype = ifelse(p_value<.001,Nucleotide,"*"))%>% ungroup %>% select(haplotype) %>% unlist() %>% paste0(collapse = "")
+
+haplotype_str
+ })
+
+```
+
+Row {.tabset .tabset-fade} 
+-------------------------------------
+
+### Chart 3
+
+```{r test2}
+
+renderTable({
+
+  x = input$id3
+
+
+tmp_t = tmp %>% rownames_to_column() %>% select(c(rowname,x)) %>% rename(Clamp_name = "rowname")
+colnames(tmp_t)[2] = "Sample"
+tmp_t2 = tmp_t %>% right_join(hap_key,) %>% group_by(Pair_id) %>% summarise(total = sum(Sample)) %>% 
+  mutate(total = ifelse(total == 0,1,total))
+tmp_t3 =  tmp_t %>% right_join(hap_key,) %>% right_join(tmp_t2) %>% mutate(failures = total-Sample)
+tmp_t3$p_value = mapply(bt, tmp_t3$Sample, tmp_t3$total)
+
+haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1, Clamp_name) %>% mutate(haplotype = ifelse(p_value<.001,Nucleotide,"*"))%>% ungroup %>% select(haplotype) %>% unlist() %>% as.data.frame() %>% t()
+
+
+fixed_split <- function(text, n) {
+  strsplit(text, paste0("(?<=.{",n,"})"), perl=TRUE)
+}
+df <- data.frame(matrix(unlist( fixed_split(haplotype$V2, 1) ), nrow=length(haplotype$V2), byrow=T))
+colnames(df) = colnames(haplotype_str)
+
+answer = df == do.call("rbind", replicate(dim(df)[1], haplotype_str, simplify = FALSE))
+xxx_2 = apply(haplotype_str == "*", 1, table) %>% t()
+xxx = apply(answer, 1, table) %>% t()
+
+haplotype_2=  cbind(haplotype,xxx)
+colnames(haplotype_2) = c("Subspecies","Haplotype","Mismatch","Match")
+output= haplotype_2 %>% filter(Match + Mismatch <=20) %>% arrange(-Match)  %>% filter(Mismatch == min(Mismatch))
+output$Mismatch = output$Mismatch - xxx_2[,2]
+output$Match = output$Match + xxx_2[,2]
+output$`Wild cards` = xxx_2[1,1]
+output
+ })
+```
+
+### Chart 5
+
+```{r test5}
+
+renderTable({
+
+  x = input$id3
+
+
+tmp_t = tmp %>% rownames_to_column() %>% select(c(rowname,x)) %>% rename(Clamp_name = "rowname")
+colnames(tmp_t)[2] = "Sample"
+tmp_t2 = tmp_t %>% right_join(hap_key,) %>% group_by(Pair_id) %>% summarise(total = sum(Sample)) %>% 
+  mutate(total = ifelse(total == 0,1,total))
+tmp_t3 =  tmp_t %>% right_join(hap_key,) %>% right_join(tmp_t2) %>% mutate(failures = total-Sample)
+tmp_t3$p_value = mapply(bt, tmp_t3$Sample, tmp_t3$total)
+
+haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1, Clamp_name) %>% mutate(haplotype = ifelse(p_value<.001,Nucleotide,"*"))%>% ungroup%>% select(Clamp_name,haplotype,Sample,total,p_value)
+
+haplotype_str
+ })
+```
+
+Inputs {.sidebar}
+-------------------------------------
+
+### Chart 2
+
+```{r }
+selectInput(inputId = "id3", label = "Sample_ID", choices = colnames(tmp))
+
+```
+
+
