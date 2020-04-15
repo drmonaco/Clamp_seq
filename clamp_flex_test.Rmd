@@ -72,8 +72,10 @@ renderTable({
 
   x = input$id2
   
-table = tmp_sub %>% select(c(1,x)) %>% filter(.[,x]>=10)
-colnames(table)  = c(x,"read counts")
+table = tmp_sub %>% select(c(1,x)) %>% filter(.[,x]>=10)%>% t() %>% as.data.frame()
+colnames(table)  = table[1,] %>% unlist()
+
+table = data.frame(table[-1,])
 table
    })
 
@@ -101,7 +103,7 @@ f = matrix %>% rownames_to_column()%>% filter(rowname %in% unlist(table[1])) %>%
 colnames(f) = unlist(f[1,]) %>% as.character()
 f = f[-1,]
 
-f %>% left_join(y = key2 %>% rownames_to_column() %>% select(rowname,Species_mini)) %>% filter(!is.na(Species_mini)) %>%select(-rowname)  %>% group_by(Species_mini) %>% arrange_all() %>% filter(row_number() == n())
+f = f %>% left_join(y = key2 %>% rownames_to_column() %>% select(rowname,Species_mini)) %>% filter(!is.na(Species_mini)) %>%select(-rowname)  %>% group_by(Species_mini) %>% arrange_all() %>% filter(row_number() == n())
   })
 
 ```
@@ -112,7 +114,7 @@ Inputs {.sidebar}
 ### Chart 2
 
 ```{r }
-selectInput(inputId = "id2", label = "Sample_ID", choices = colnames(tmp_sub))
+selectInput(inputId = "id2", label = "Sample_ID", choices = colnames(tmp))
 
 ```
 
@@ -191,7 +193,7 @@ colnames(haplotype_2) = c("Subspecies","Haplotype","Mismatch","Match")
 output= haplotype_2 %>% filter(Match + Mismatch <=20) %>% arrange(-Match)  %>% filter(Mismatch == min(Mismatch))
 output$Mismatch = output$Mismatch - xxx_2[,2]
 output$Match = output$Match
-output$`Wild cards` = xxx_2[1,1]
+output$`Wild cards` = xxx_2[1,2]
 output
  })
 ```
@@ -217,6 +219,7 @@ haplotype_str = tmp_t3 %>% group_by(Pair_id) %>% top_n(-1, p_value) %>% top_n(-1
     mutate(mt_counts = ifelse(Status == "mutant",Sample,total-Sample)) %>% select(-Sample,-total,-Status) %>% 
   select(Pair_id,haplotype,wt_counts,mt_counts,p_value)
 
+haplotype_str$p_value  = formatC(haplotype_str$p_value,format = "G")
 haplotype_str
  })
 ```
